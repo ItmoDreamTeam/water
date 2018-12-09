@@ -4,16 +4,21 @@ from surface import Surface
 
 
 class Canvas(app.Canvas):
-    def __init__(self, surface, sky="./src/resources/fluffy_clouds.png"):
+    def __init__(self, surface, sky="./src/resources/fluffy_clouds.png", bed="./src/resources/seabed.png"):
         app.Canvas.__init__(self, size=(600, 600), title="Water surface simulator 2")
         self.surface = surface
         self.sky = io.read_png(sky)
+        self.bed = io.read_png(bed)
         self.program = gloo.Program(VERTEX_SHADER, TRIANGLE_FRAGMENT_SHADER)
         self.program_point = gloo.Program(VERTEX_SHADER, POINT_FRAGMENT_SHADER)
         pos = self.surface.position()
         self.program["a_position"] = pos
         self.program_point["a_position"] = pos
         self.program['u_sky_texture'] = gloo.Texture2D(self.sky, wrapping='repeat', interpolation='linear')
+        self.program['u_bed_texture'] = gloo.Texture2D(self.bed, wrapping='repeat', interpolation='linear')
+        self.program_point["u_eye_height"] = self.program["u_eye_height"] = 3
+        self.program["u_alpha"] = 0.9
+        self.program["u_bed_depth"] = 1
         self.triangles = gloo.IndexBuffer(self.surface.triangulation())
         self.are_points_visible = False
         self._timer = app.Timer('auto', connect=self.on_timer, start=True)
@@ -51,5 +56,5 @@ class Canvas(app.Canvas):
 
 
 if __name__ == '__main__':
-    c = Canvas(Surface())
+    c = Canvas(Surface(nwave=5, max_height=0.3))
     app.run()
