@@ -65,6 +65,7 @@ class Canvas(app.Canvas):
         self.bed_flag = True
         self.depth_flag = True
         self.sky_flag = True
+        self.caustics_flag = False
         self.apply_flags()
 
         # Run everything
@@ -80,10 +81,11 @@ class Canvas(app.Canvas):
         self.program_main["a_normal"] = self.program_caustics["a_normal"] = normals
 
         gloo.clear()
-        self.program_background.draw('triangles', self.triangles_background)
-        self.program_caustics.draw('triangles', self.triangles)
-        self.program_main.draw('triangles', self.triangles)
-
+        if self.caustics_flag:
+            self.program_caustics.draw('triangles', self.triangles)
+        else:
+            self.program_background.draw('triangles', self.triangles_background)
+            self.program_main.draw('triangles', self.triangles)
         if self.are_points_visible:
             self.program_point.draw('points')
 
@@ -151,6 +153,9 @@ class Canvas(app.Canvas):
             self.reflected_flag = not self.reflected_flag
             print("Show reflected image of sun:", self.reflected_flag)
             self.apply_flags()
+        elif event.key == '`':
+            self.caustics_flag = not self.caustics_flag
+            print("Show caustics only:", self.caustics_flag)
 
     def screen_to_gl_coordinates(self, pos):
         return 2 * np.array(pos) / np.array(self.size) - 1
