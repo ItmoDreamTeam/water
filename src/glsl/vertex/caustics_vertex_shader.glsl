@@ -12,7 +12,7 @@ varying vec3 v_suncoord;
 varying vec3 v_position;
 varying float v_intensity;
 
-float refraction(vec3 incident, vec3 outer_normal, float alpha, vec3 refracted) {
+float refraction(vec3 incident, vec3 outer_normal, float alpha, out vec3 refracted) {
     float c1=dot(outer_normal,incident);
     if(c1>0.0) return 0.0;
     float k=max(0.0, 1.0-alpha*alpha*(1.0-c1*c1));
@@ -28,18 +28,15 @@ vec3 bed_intersection(vec3 position, vec3 direction) {
     return position+t*direction;
 }
 
-void main (void) {
+void main() {
     vec3 position=vec3(a_position,a_height);
-    vec3 outer_normal=-normalize(vec3(a_normal, -1.0));
-
+    vec3 outer_normal=-normalize(vec3(a_normal,-1.0));
     // Compute projection to orthogonal to sun plane
     // to compute amount of light per fragment.
     v_suncoord=position-u_sun_direction*dot(u_sun_direction, position);
-
     // Compute refracted ray
     vec3 refracted;
     v_intensity=1.0-refraction(-u_sun_direction, outer_normal, u_alpha, refracted);
-
     // compute projection to bed
     vec3 on_bed=bed_intersection(position,refracted);
     gl_Position=vec4(on_bed.xy,0.0,1.0);

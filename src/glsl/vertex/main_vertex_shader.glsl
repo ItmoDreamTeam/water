@@ -23,11 +23,9 @@ vec3 from_water_to_eye(vec3 position) {
     return position-eye.xyz;
 }
 
-void main (void) {
+void main() {
     v_position=vec3(a_position.xy,a_height);
-    v_normal=normalize(vec3(a_normal, -1));
-
-    gl_Position=to_clipspace(v_position);
-
+    v_normal=normalize(vec3(a_normal,-1));
     v_from_eye=from_water_to_eye(v_position);
+    gl_Position=to_clipspace(v_position);
 }
