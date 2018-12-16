@@ -19,24 +19,42 @@ class Canvas(app.Canvas):
         self.surface = surface
         self.sky = io.read_png(sky)
         self.bed = io.read_png(bed)
-
         app.Canvas.__init__(self, size=(600, 600), title="Water surface simulator")
-        self.program = gloo.Program(Shaders.VERTEX_SHADER, Shaders.TRIANGLE_FRAGMENT_SHADER)
-        self.program_point = gloo.Program(Shaders.VERTEX_SHADER, Shaders.POINT_FRAGMENT_SHADER)
-        pos = self.surface.position()
-        self.program["a_position"] = pos
-        self.program_point["a_position"] = pos
-        self.program['u_sky_texture'] = gloo.Texture2D(self.sky, wrapping='repeat', interpolation='linear')
-        self.program['u_bed_texture'] = gloo.Texture2D(self.bed, wrapping='repeat', interpolation='linear')
-        self.program_point["u_eye_height"] = self.program["u_eye_height"] = 3
-        self.program["u_alpha"] = 0.9
-        self.program["u_bed_depth"] = 1
-        self.program["u_sun_direction"] = Canvas.normalize([0, 1, 0.1])
-        self.program["u_sun_diffused_color"] = [1, 0.8, 1]
-        self.program["u_sun_reflected_color"] = [1, 0.8, 0.6]
-        self.triangles = gloo.IndexBuffer(self.surface.triangulation())
 
-        # GUI
+        # Create shaders
+        self.program_main = gloo.Program(Shaders.MAIN_VERTEX_SHADER, Shaders.TRIANGLE_FRAGMENT_SHADER)
+        self.program_point = gloo.Program(Shaders.MAIN_VERTEX_SHADER, Shaders.POINT_FRAGMENT_SHADER)
+        self.program_background = gloo.Program(Shaders.BACKGROUND_VERTEX_SHADER, Shaders.BACKGROUND_FRAGMENT_SHADER)
+        self.program_caustics = gloo.Program(Shaders.CAUSTICS_VERTEX_SHADER, Shaders.CAUSTICS_FRAGMENT_SHADER)
+
+        # Set shaders' parameters
+        pos = self.surface.position()
+
+        self.program_main["a_position"] = pos
+        self.program_point["a_position"] = pos
+        self.program_caustics["a_position"] = pos
+        self.program_background['a_position'] = np.array([[-1.0, -1.0], [1.0, -1.0], [1.0, 1.0], [-1.0, 1.0]],
+                                                         dtype=np.float32)
+
+        self.program_main["u_sun_diffused_color"] = [1, 1, 1]
+        self.program_main["u_alpha"] = self.program_caustics["u_alpha"] = 0.9
+        self.program_main["u_bed_depth"] = self.program_background['u_bed_depth'] = \
+            self.program_caustics["u_bed_depth"] = 0.4
+        self.program_main["u_sun_direction"] = self.program_background['u_sun_direction'] = \
+            self.program_caustics["u_sun_direction"] = Canvas.normalize([0, 0, 1])
+        self.program_main["u_sun_reflected_color"] = self.program_background['u_sun_reflected_color'] = [1, 1, 1]
+        self.program_main["u_water_ambient_color"] = self.program_background['u_water_ambient_color'] = [0.0, 0.3, 0.5]
+        self.program_main['u_sky_texture'] = self.program_background['u_sky_texture'] = \
+            gloo.Texture2D(self.sky, wrapping='repeat', interpolation='linear')
+        self.program_main['u_bed_texture'] = self.program_background['u_bed_texture'] = \
+            gloo.Texture2D(self.bed, wrapping='repeat', interpolation='linear')
+        self.program_point["u_eye_height"] = self.program_main["u_eye_height"] = \
+            self.program_background['u_eye_height'] = 0.4
+
+        self.triangles = gloo.IndexBuffer(self.surface.triangulation())
+        self.triangles_background = gloo.IndexBuffer(np.array([[0], [1], [2], [2], [3], [0]], dtype=np.uint16))
+
+        # Set GUI
         self.camera = np.array([0, 0, 1])
         self.up = np.array([0, 1, 0])
         self.set_camera()
@@ -49,17 +67,17 @@ class Canvas(app.Canvas):
         self.sky_flag = True
         self.apply_flags()
 
-        # Run
+        # Run everything
         self._timer = app.Timer('auto', connect=self.on_timer, start=True)
         self.activate_zoom()
         self.show()
 
     def apply_flags(self):
-        self.program["u_diffused_mult"] = 0.5 if self.diffused_flag else 0
-        self.program["u_reflected_mult"] = 1.0 if self.reflected_flag else 0
-        self.program["u_bed_mult"] = 1 if self.bed_flag else 0
-        self.program["u_depth_mult"] = 1 if self.depth_flag else 0
-        self.program["u_sky_mult"] = 1 if self.sky_flag else 0
+        self.program_main["u_diffused_mult"] = 0.5 if self.diffused_flag else 0
+        self.program_main["u_reflected_mult"] = 1.0 if self.reflected_flag else 0
+        self.program_main["u_bed_mult"] = 1 if self.bed_flag else 0
+        self.program_main["u_depth_mult"] = 1 if self.depth_flag else 0
+        self.program_main["u_sky_mult"] = 1 if self.sky_flag else 0
 
     def set_camera(self):
         rotation = np.zeros((4, 4), dtype=np.float32)
@@ -68,7 +86,7 @@ class Canvas(app.Canvas):
         rotation[1, :3] = self.up
         rotation[2, :3] = self.camera
         world_view = rotation
-        self.program['u_world_view'] = world_view.T
+        self.program_main['u_world_view'] = world_view.T
         self.program_point['u_world_view'] = world_view.T
 
     def rotate_camera(self, shift):
@@ -84,14 +102,26 @@ class Canvas(app.Canvas):
         gloo.set_viewport(0, 0, *self.physical_size)
 
     def on_draw(self, event):
-        gloo.set_state(clear_color=(0, 0, 0, 1), blend=False)
+        heights = self.surface.height()
+        normals = self.surface.normal()
+        self.program_main["a_height"] = self.program_caustics["a_height"] = heights
+        self.program_main["a_normal"] = self.program_caustics["a_normal"] = normals
+        gloo.set_state(clear_color=(0, 0, 0, 1))
         gloo.clear()
-        self.program["a_height"] = self.surface.height()
-        self.program["a_normal"] = self.surface.normal()
-        gloo.set_state(depth_test=True)
-        self.program.draw('triangles', self.triangles)
+        gloo.gl.glClear(gloo.gl.GL_COLOR_BUFFER_BIT)
+        gloo.set_blend_func("one", "one")
+        gloo.gl.glEnable(gloo.gl.GL_BLEND)
+        gloo.set_state(depth_test=False)
+        self.program_caustics.draw('triangles', self.triangles)
+        gloo.gl.glDisable(gloo.gl.GL_BLEND)
+        gloo.set_state(clear_color=(1, 1, 1, 1), depth_test=True)
+        gloo.gl.glClear(gloo.gl.GL_COLOR_BUFFER_BIT | gloo.gl.GL_DEPTH_BUFFER_BIT)
+        self.program_background.draw('triangles', self.triangles_background)
+        gloo.set_state(depth_test=False)
+        self.program_main.draw('triangles', self.triangles)
+        self.program_caustics["u_alpha"] = self.program_main["u_alpha"]
         if self.are_points_visible:
-            self.program_point["a_height"] = self.program["a_height"]
+            self.program_point["a_height"] = h
             gloo.set_state(depth_test=False)
             self.program_point.draw('points')
 
