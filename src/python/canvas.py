@@ -20,6 +20,7 @@ class Canvas(app.Canvas):
         self.sky = io.read_png(sky)
         self.bed = io.read_png(bed)
         app.Canvas.__init__(self, size=(600, 600), title="Water surface simulator 12")
+        gloo.set_state(clear_color=(1, 1, 1, 1))
 
         # Create shaders
         self.program_main = gloo.Program(Shaders.MAIN_VERTEX_SHADER, Shaders.MAIN_FRAGMENT_SHADER)
@@ -78,21 +79,25 @@ class Canvas(app.Canvas):
         self.program_main["a_height"] = self.program_caustics["a_height"] = heights
         self.program_main["a_normal"] = self.program_caustics["a_normal"] = normals
 
-        gloo.set_state(clear_color=(0, 0, 0, 1))
         gloo.clear()
-        gloo.gl.glClear(gloo.gl.GL_COLOR_BUFFER_BIT)
-        gloo.set_blend_func("one", "one")
-        gloo.gl.glEnable(gloo.gl.GL_BLEND)
-        gloo.set_state(depth_test=False)
-        self.program_caustics.draw('triangles', self.triangles)
-
-        gloo.gl.glDisable(gloo.gl.GL_BLEND)
-        gloo.set_state(clear_color=(1, 1, 1, 1), depth_test=True)
-        gloo.gl.glClear(gloo.gl.GL_COLOR_BUFFER_BIT | gloo.gl.GL_DEPTH_BUFFER_BIT)
         self.program_background.draw('triangles', self.triangles_background)
-        gloo.set_state(depth_test=False)
         self.program_main.draw('triangles', self.triangles)
-        self.program_caustics["u_alpha"] = self.program_main["u_alpha"]
+
+        # gloo.gl.glClear(gloo.gl.GL_COLOR_BUFFER_BIT)
+        # gloo.set_blend_func("one", "one")
+        # gloo.gl.glEnable(gloo.gl.GL_BLEND)
+        # gloo.set_state(depth_test=False)
+
+        # self.program_caustics.draw('triangles', self.triangles)
+
+        # gloo.gl.glDisable(gloo.gl.GL_BLEND)
+        # gloo.set_state(clear_color=(1, 1, 1, 1), depth_test=True)
+        # gloo.gl.glClear(gloo.gl.GL_COLOR_BUFFER_BIT | gloo.gl.GL_DEPTH_BUFFER_BIT)
+
+        # gloo.set_state(depth_test=False)
+
+        # self.program_caustics["u_alpha"] = self.program_main["u_alpha"]
+
         if self.are_points_visible:
             self.program_point["a_height"] = heights
             gloo.set_state(depth_test=False)
