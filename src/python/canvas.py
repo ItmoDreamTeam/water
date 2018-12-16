@@ -1,7 +1,7 @@
 import numpy as np
 from vispy import gloo, app, io
-from shader import *
-from surface import Surface
+
+from shaders import Shaders
 
 
 class Canvas(app.Canvas):
@@ -11,14 +11,18 @@ class Canvas(app.Canvas):
         vec = np.asarray(vec, dtype=np.float32)
         return vec / np.sqrt(np.sum(vec * vec, axis=-1))[..., None]
 
-    def __init__(self, surface, sky="./src/resources/fluffy_clouds.png", bed="./src/resources/seabed.png"):
+    @staticmethod
+    def run():
+        app.run()
+
+    def __init__(self, surface, sky, bed):
         self.surface = surface
         self.sky = io.read_png(sky)
         self.bed = io.read_png(bed)
 
-        app.Canvas.__init__(self, size=(600, 600), title="Water surface simulator 2")
-        self.program = gloo.Program(VERTEX_SHADER, TRIANGLE_FRAGMENT_SHADER)
-        self.program_point = gloo.Program(VERTEX_SHADER, POINT_FRAGMENT_SHADER)
+        app.Canvas.__init__(self, size=(600, 600), title="Water surface simulator")
+        self.program = gloo.Program(Shaders.VERTEX_SHADER, Shaders.TRIANGLE_FRAGMENT_SHADER)
+        self.program_point = gloo.Program(Shaders.VERTEX_SHADER, Shaders.POINT_FRAGMENT_SHADER)
         pos = self.surface.position()
         self.program["a_position"] = pos
         self.program_point["a_position"] = pos
@@ -141,9 +145,3 @@ class Canvas(app.Canvas):
 
     def on_mouse_release(self, event):
         self.drag_start = None
-
-
-if __name__ == '__main__':
-    c = Canvas(Surface(nwave=5, max_height=0.3))
-    c.measure_fps()
-    app.run()
