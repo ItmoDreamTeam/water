@@ -40,7 +40,7 @@ class Canvas(app.Canvas):
         self.program_main['u_bed_texture'] = self.program_background['u_bed_texture'] = \
             gloo.Texture2D(self.bed, wrapping='repeat', interpolation='linear')
         self.program_point["u_eye_height"] = self.program_main["u_eye_height"] = \
-            self.program_background['u_eye_height'] = 0.4
+            self.program_background['u_eye_height'] = self.program_caustics["u_eye_height"] = 0.4
         self.program_main["u_alpha"] = \
             self.program_caustics["u_alpha"] = 0.7
         self.program_main["u_bed_depth"] = self.program_background['u_bed_depth'] = \
@@ -85,6 +85,7 @@ class Canvas(app.Canvas):
             self.program_caustics.draw('triangles', self.triangles)
         else:
             self.program_background.draw('triangles', self.triangles_background)
+            self.program_caustics.draw('triangles', self.triangles)
             self.program_main.draw('triangles', self.triangles)
         if self.are_points_visible:
             self.program_point.draw('points')
@@ -107,6 +108,7 @@ class Canvas(app.Canvas):
         self.program_main['u_world_view'] = world_view.T
         self.program_point['u_world_view'] = world_view.T
         self.program_background['u_world_view'] = world_view.T
+        self.program_caustics['u_world_view'] = world_view.T
 
     def rotate_camera(self, shift):
         right = np.cross(self.up, self.camera)

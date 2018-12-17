@@ -1,5 +1,7 @@
 #version 120
 
+uniform float u_eye_height;
+uniform mat4 u_world_view;
 uniform vec3 u_sun_direction;
 uniform float u_bed_depth;
 uniform float u_alpha;
@@ -28,6 +30,12 @@ vec3 bed_intersection(vec3 position, vec3 direction) {
     return position+t*direction;
 }
 
+vec4 to_clipspace(vec3 position) {
+    vec4 position_view=u_world_view*vec4(position,1);
+    float z=1.0-(1.0+position_view.z)/(1.0+u_eye_height);
+    return vec4(position_view.xy,-position_view.z*z/2.0,z);
+}
+
 void main() {
     vec3 position=vec3(a_position,a_height);
     vec3 outer_normal=-normalize(vec3(a_normal,-1.0));
@@ -39,6 +47,7 @@ void main() {
     v_intensity=1.0-refraction(-u_sun_direction, outer_normal, u_alpha, refracted);
     // compute projection to bed
     vec3 on_bed=bed_intersection(position,refracted);
-    gl_Position=vec4(on_bed.xy,0.0,1.0);
+    vec4 point=to_clipspace(vec3(on_bed.xy, -1));
+    gl_Position=point;
     v_position=vec3(on_bed.xy,1.0);
 }
